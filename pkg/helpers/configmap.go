@@ -6,8 +6,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CreateConfigMap will create a Kubernetes Servic Using ExternalName types
-func CreateConfigMap(config *config.Config, resource interface{}, svcName string, svcNamespace string, configMapTemplate map[string]string) string {
+// SyncConfigMap will create a Kubernetes Servic Using ExternalName types
+//
+// TODO: make this Create, Update or Delete so that additional resources can be
+// Synced in a proper way.
+func SyncConfigMap(config *config.Config, resource interface{}, svcName string, svcNamespace string, configMapTemplate map[string]string) string {
 	logger := config.Logger
 	cmData := map[string]string{}
 	for key, value := range configMapTemplate {

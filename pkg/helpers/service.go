@@ -6,8 +6,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CreateExternalNameService will create a Kubernetes Servic Using ExternalName types
-func CreateExternalNameService(config *config.Config, resource interface{}, svcName string, svcNamespace string, externalNameTemplate string, svcPort int32) string {
+// SyncExternalNameService will create a Kubernetes Servic Using ExternalName types
+//
+// TODO: make this Create, Update or Delete so that additional resources can be
+// Synced in a proper way.
+func SyncExternalNameService(config *config.Config, resource interface{}, svcName string, svcNamespace string, externalNameTemplate string, svcPort int32) string {
 	logger := config.Logger
 
 	externalName, err := Templatize(externalNameTemplate, Data{Obj: resource, Config: config})

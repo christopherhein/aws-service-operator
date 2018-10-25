@@ -2,6 +2,7 @@ package base
 
 import (
 	"context"
+
 	"github.com/awslabs/aws-service-operator/pkg/config"
 	"github.com/awslabs/aws-service-operator/pkg/operators/cloudformationtemplate"
 	"github.com/awslabs/aws-service-operator/pkg/operators/dynamodb"
@@ -10,17 +11,21 @@ import (
 	"github.com/awslabs/aws-service-operator/pkg/operators/snssubscription"
 	"github.com/awslabs/aws-service-operator/pkg/operators/snstopic"
 	"github.com/awslabs/aws-service-operator/pkg/operators/sqsqueue"
+	"github.com/awslabs/aws-service-operator/pkg/queuemanager"
 )
 
 type base struct {
-	config *config.Config
+	config       *config.Config
+	queueManager *queuemanager.QueueManager
 }
 
 func New(
 	config *config.Config,
+	queueManager *queuemanager.QueueManager,
 ) *base {
 	return &base{
-		config: config,
+		config:       config,
+		queueManager: queueManager,
 	}
 }
 

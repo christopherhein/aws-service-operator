@@ -8,12 +8,11 @@ package cloudformationtemplate
 import (
 	"context"
 
+	awsV1alpha1 "github.com/awslabs/aws-service-operator/pkg/apis/service-operator.aws/v1alpha1"
 	"github.com/awslabs/aws-service-operator/pkg/config"
+	"github.com/awslabs/aws-service-operator/pkg/customizations/cloudformationtemplate"
 	"github.com/awslabs/aws-service-operator/pkg/operator"
 	"k8s.io/client-go/tools/cache"
-
-	awsV1alpha1 "github.com/awslabs/aws-service-operator/pkg/apis/service-operator.aws/v1alpha1"
-	"github.com/awslabs/aws-service-operator/pkg/customizations/cloudformationtemplate"
 )
 
 // Operator represents a controller object for object store custom resources

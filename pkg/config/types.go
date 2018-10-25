@@ -1,10 +1,9 @@
 package config
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws/session"
 	awsclient "github.com/awslabs/aws-service-operator/pkg/client/clientset/versioned/typed/service-operator.aws/v1alpha1"
+	"github.com/awslabs/aws-service-operator/pkg/queuemanager"
 	"github.com/sirupsen/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -17,6 +16,9 @@ type Config struct {
 	Region           string
 	Kubeconfig       string
 	MasterURL        string
+	QueueURL         string
+	QueueARN         string
+	QueueManager     *queuemanager.QueueManager
 	AWSSession       *session.Session
 	AWSClientset     awsclient.ServiceoperatorV1alpha1Interface
 	KubeClientset    kubernetes.Interface
@@ -46,25 +48,26 @@ func getKubeconfig(masterURL, kubeconfig string) (*rest.Config, error) {
 	return rest.InClusterConfig()
 }
 
-func (c *Config) CreateContext(masterURL, kubeconfig string) error {
-	config, err := getKubeconfig(masterURL, kubeconfig)
+func CreateContext(masterURL, kubeconfig string) (
+	config *rest.Config,
+	clientset *kubernetes.Interface,
+	awsclientset *awsclient.Interface,
+	err error,
+) {
+	config, err = getKubeconfig(masterURL, kubeconfig)
 	if err != nil {
-		return fmt.Errorf("failed to get k8s config. %+v", err)
+		return
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return fmt.Errorf("failed to get k8s client. %+v", err)
+		return
 	}
 
 	awsclientset, err := awsclient.NewForConfig(config)
 	if err != nil {
-		return fmt.Errorf("failed to create object store clientset. %+v", err)
+		return
 	}
 
-	c.AWSClientset = awsclientset
-	c.KubeClientset = clientset
-	c.RESTConfig = config
-
-	return nil
+	return
 }

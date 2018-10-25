@@ -9,6 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/awslabs/aws-service-operator/pkg/config"
+	"github.com/awslabs/aws-service-operator/pkg/queue"
+	"github.com/awslabs/aws-service-operator/pkg/queuemanager"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -110,11 +112,27 @@ func getConfig() (c *config.Config, err error) {
 		return nil, err
 	}
 
+	queueURL, queueARN, err := queue.RegisterQueue(sess, clusterName, "cloudformation")
+	if err != nil {
+		return nil, err
+	}
+
+	restConfig, kubeClientset, awsClientset, err := config.CreateContext(masterURL, kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
 	c = &config.Config{
-		Region:     awsRegion,
-		Kubeconfig: kubeconfig,
-		MasterURL:  masterURL,
-		AWSSession: sess,
+		Region:        awsRegion,
+		Kubeconfig:    kubeconfig,
+		RESTConfig:    restConfig,
+		KubeClientset: kubeClientset,
+		AWSClientset:  awsClientset,
+		MasterURL:     masterURL,
+		AWSSession:    sess,
+		QueueURL:      queueURL,
+		QueueARN:      queueARN,
+		QueueManager:  queuemanager.New(),
 		LoggingConfig: &config.LoggingConfig{
 			File:              logFile,
 			Level:             logLevel,
@@ -126,11 +144,6 @@ func getConfig() (c *config.Config, err error) {
 		Bucket:           bucket,
 		AccountID:        accountID,
 		DefaultNamespace: defaultNamespace,
-	}
-
-	err = c.CreateContext(masterURL, kubeconfig)
-	if err != nil {
-		return nil, err
 	}
 
 	return c, nil

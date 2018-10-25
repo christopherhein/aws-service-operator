@@ -7,20 +7,20 @@ package dynamodb
 
 import (
 	"context"
-	"github.com/awslabs/aws-service-operator/pkg/helpers"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
-
-	awsclient "github.com/awslabs/aws-service-operator/pkg/client/clientset/versioned/typed/service-operator.aws/v1alpha1"
-	"github.com/awslabs/aws-service-operator/pkg/config"
-	"github.com/awslabs/aws-service-operator/pkg/operator"
-	"github.com/awslabs/aws-service-operator/pkg/queue"
-	"github.com/iancoleman/strcase"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"strings"
 
 	awsV1alpha1 "github.com/awslabs/aws-service-operator/pkg/apis/service-operator.aws/v1alpha1"
+	awsclient "github.com/awslabs/aws-service-operator/pkg/client/clientset/versioned/typed/service-operator.aws/v1alpha1"
+	"github.com/awslabs/aws-service-operator/pkg/config"
+	"github.com/awslabs/aws-service-operator/pkg/helpers"
+	"github.com/awslabs/aws-service-operator/pkg/operator"
+	"github.com/awslabs/aws-service-operator/pkg/queue"
+	"github.com/awslabs/aws-service-operator/pkg/queuemanager"
+	"github.com/iancoleman/strcase"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 // Operator represents a controller object for object store custom resources
@@ -43,16 +43,16 @@ func (c *Operator) StartWatch(ctx context.Context, namespace string) {
 		UpdateFunc: c.onUpdate,
 		DeleteFunc: c.onDelete,
 	}
-	queuectrl := queue.New(c.config, c.config.AWSClientset, 1)
-	c.topicARN, _, _, _ = queuectrl.Register("dynamodb", &awsV1alpha1.DynamoDB{})
-	go queuectrl.StartWatch(queue.HandlerFunc(QueueUpdater), ctx.Done())
+	queuectrl := queue.New(c.config, c.config.AWSClientset, 10)
+	c.topicARN, _ = queuectrl.Register("dynamodb")
+	c.Config.QueueManger.Add(c.topicARN, queuemanager.HandlerFunc(QueueUpdater))
 
 	oper := operator.New("dynamodbs", namespace, resourceHandlers, c.config.AWSClientset.RESTClient())
 	oper.Watch(&awsV1alpha1.DynamoDB{}, ctx.Done())
 }
 
 // QueueUpdater will take the messages from the queue and process them
-func QueueUpdater(config *config.Config, msg *queue.MessageBody) error {
+func QueueUpdater(config *config.Config, msg *queuemanager.MessageBody) error {
 	logger := config.Logger
 	var name, namespace string
 	if msg.Updatable {

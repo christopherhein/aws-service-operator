@@ -14,12 +14,13 @@ import (
 	{{- end}}
 
 	"github.com/awslabs/aws-service-operator/pkg/config"
-	{{- if .Spec.Queue}}
-    "github.com/awslabs/aws-service-operator/pkg/queue"
-    corev1 "k8s.io/api/core/v1"
-    "github.com/iancoleman/strcase"
-    "strings"
-		awsclient "github.com/awslabs/aws-service-operator/pkg/client/clientset/versioned/typed/service-operator.aws/v1alpha1"
+  "github.com/awslabs/aws-service-operator/pkg/queuemanager"
+  {{- if .Spec.Queue}}
+  corev1 "k8s.io/api/core/v1"
+  "github.com/iancoleman/strcase"
+  "strings"
+	awsclient "github.com/awslabs/aws-service-operator/pkg/client/clientset/versioned/typed/service-operator.aws/v1alpha1"
+	"github.com/awslabs/aws-service-operator/pkg/queue"
 	{{- end}}
 	"github.com/awslabs/aws-service-operator/pkg/operator"
 	"k8s.io/client-go/tools/cache"
@@ -51,9 +52,9 @@ func (c *Operator) StartWatch(ctx context.Context, namespace string) {
 		DeleteFunc: c.onDelete,
 	}
 	{{- if .Spec.Queue}}
-	queuectrl := queue.New(c.config, c.config.AWSClientset, 1)
-	c.topicARN, _, _, _ = queuectrl.Register("{{.Spec.Resource.Name}}", &awsV1alpha1.{{.Spec.Kind}}{})
-	go queuectrl.StartWatch(queue.HandlerFunc(QueueUpdater), ctx.Done())
+	queuectrl := queue.New(c.config, c.config.AWSClientset, 10)
+	c.topicARN, _ = queuectrl.Register("{{.Spec.Resource.Name}}")
+	c.Config.QueueManger.Add(c.topicARN, queuemanager.HandlerFunc(QueueUpdater))
 	{{- end}}
 
 	oper := operator.New("{{.Spec.Resource.Plural}}", namespace, resourceHandlers, c.config.AWSClientset.RESTClient())
@@ -62,8 +63,7 @@ func (c *Operator) StartWatch(ctx context.Context, namespace string) {
 
 {{- if .Spec.Queue}}
 // QueueUpdater will take the messages from the queue and process them
-func QueueUpdater(config *config.Config, msg *queue.MessageBody) error {
-	logger := config.Logger
+func QueueUpdater(config *config.Config, msg *queuemanager.MessageBody) error {
 	var name, namespace string
 	if msg.Updatable {
 		name = msg.ResourceName
@@ -72,7 +72,6 @@ func QueueUpdater(config *config.Config, msg *queue.MessageBody) error {
 		clientSet, _ := awsclient.NewForConfig(config.RESTConfig)
 		resources, err := clientSet.{{.Spec.PluralName}}("").List(metav1.ListOptions{})
 		if err != nil {
-			logger.WithError(err).Error("error getting {{.Spec.Resource.Plural}}")
 			return err
 		}
 		for _, resource := range resources.Items {

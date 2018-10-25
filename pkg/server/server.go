@@ -8,6 +8,7 @@ import (
 	awsscheme "github.com/awslabs/aws-service-operator/pkg/client/clientset/versioned/scheme"
 	"github.com/awslabs/aws-service-operator/pkg/config"
 	opBase "github.com/awslabs/aws-service-operator/pkg/operators/base"
+	"github.com/awslabs/aws-service-operator/pkg/queue"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -58,17 +59,29 @@ func (c *Server) watchOperatorResources(errChan chan error, ctx context.Context)
 
 	// start watching the aws operator resources
 	logger.WithFields(logrus.Fields{"resources": c.Config.Resources}).Info("Watching")
-	operators := opBase.New(c.Config) // TODO: remove context and Clientset
+	operators := opBase.New(c.Config)
 
 	go operators.Watch(ctx, corev1.NamespaceAll)
 	<-ctx.Done()
 	c.Config.Logger.Info("operators stopped")
 }
 
+func (c *Server) subscribeToSQS(errChan chan error, ctx context.Context) {
+	err = queue.SetQueuePolicy(config)
+	if err != nil {
+		logger.WithError(err).Error("error setting queue policy")
+	}
+
+	go queue.Subscribe(config, ctx)
+	<-ctx.Done()
+	c.Config.Logger.Info("sqs subscriber stopped")
+}
+
 // Run starts the server to listen to Kubernetes
 func (c *Server) Run(ctx context.Context) {
 	config := c.Config
 	logger := config.Logger
+
 	errChan := make(chan error, 1)
 
 	logger.Info("starting metrics server")
@@ -76,6 +89,9 @@ func (c *Server) Run(ctx context.Context) {
 
 	logger.Info("starting resource watcher")
 	go c.watchOperatorResources(errChan, ctx)
+
+	logger.Info("starting sqs subscriber")
+	go c.subscribeToSQS(errChan, ctx)
 
 	for {
 		select {
